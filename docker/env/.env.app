@@ -1,0 +1,10 @@
+APP_NAME="celery_test"
+APP_VERSION="0.1"
+
+
+POSTGRES_USERNAME="postgres"
+POSTGRES_PASSWORD="postgres_password"
+POSTGRES_HOST="pgvector"
+POSTGRES_PORT=5432
+POSTGRES_MAIN_DATABASE="minirag"
+

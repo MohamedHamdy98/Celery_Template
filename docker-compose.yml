@@ -1,0 +1,68 @@
+services:
+  # FastAPI Application
+  fastapi:
+    build:
+      context: ..
+      dockerfile: docker/minirag/Dockerfile
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    volumes:
+      - fastapi_data:/app/assets
+    networks:
+      - backend
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./docker/env/.env.app
+  # RabbitMQ (Message Broker)
+  rabbitmq:
+    image: rabbitmq:4.1.2-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port static protocol
+      - "15672:15672" # Management UI port from config file
+    volumes: # for saving data like database for RabbitMQ
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf # Custom config path
+    env_file:
+      - ./docker/env/.env.rabbitmq # Custom env path
+    networks:
+      - backend
+    restart: always # if crash will try again
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"] # check if RabbitMQ is running so use this CMD
+      timeout: 10s
+      retries: 5
+
+  # Redis (Results Backend & Cache)
+  redis:
+    image: redis:8.0.3-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    env_file:
+      - ./docker/env/.env.redis
+    networks:
+      - backend
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 10s
+      retries: 5
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-minirag_redis_2222}"]
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  fastapi_data:
+  rabbitmq_data:
+  redis_data:
