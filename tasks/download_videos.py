@@ -20,7 +20,10 @@ import yt_dlp, os
 
     print(f"✅ Video downloaded to {output_path}")
 '''
-@celery_app.task(bind=True, name="tasks.download_videos.download_videos")
+@celery_app.task(bind=True, name="tasks.download_videos.download_videos",
+                 autoretry_for=(Exception,),
+                 retry_kwargs={"max_retries": 3, "countdown": 60}
+                )
 def download_videos(self, urls: List[str]):
     result = asyncio.run(_download_videos(self, urls=urls))
     return result
