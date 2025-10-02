@@ -1,5 +1,9 @@
 # Project Setup and Run Instructions
 
+# Run conda in powerchill win
+- Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+
+
 ## Run Celery Worker
 ```bash
 python -m celery -A celery_app_windows worker -Q default,urls_downloader_queue,mail_queue --loglevel=info
@@ -18,9 +22,18 @@ python -m celery -A celery_app_windows flower --conf=flowerconfig.py
 ## Run FastAPI Application
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 5000
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 5000
 ```
 
 ## Run Docker Compose (RabbitMQ & Redis)
 ```bash
 docker compose up --build rabbitmq redis
 ```
+
+## Run Database 
+```bash
+python -m alembic revision --autogenerate -m "create celery_task_executions table"
+python -m alembic upgrade head
+
+```
+
