@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 import logging
 import asyncio
 from tasks.download_videos import download_videos
+from tasks.download_images import download_images
 from celery_app_windows import celery_app
 from celery.result import AsyncResult
 from schema.pydantic_schema import URLs
@@ -13,9 +14,9 @@ logger = logging.getLogger("uvicorn.error")
 downloader_router = APIRouter( prefix="/api/v1", tags=["Celery Template"])
 
 @downloader_router.post("/download")
-async def download_videos_from_urls(URLS: URLs):
+async def download_images_from_urls(URLS: URLs):
     if URLS.urls:
-        task_id = download_videos.delay(URLS.urls)
+        task_id = download_images.delay(URLS.urls)
         return JSONResponse(
             content = {
                 "signal": "Success!",

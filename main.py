@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from helper.config import get_settings
 from routes.basic_router import basic_router
 from routes.downloader_router import downloader_router
+from routes.database import app as database_app
 
 app = FastAPI()
 
@@ -10,6 +11,7 @@ settings = get_settings()
 
 app.include_router(basic_router)
 app.include_router(downloader_router)
+app.include_router(database_app)
 
 
 @app.get("/health")

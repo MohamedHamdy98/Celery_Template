@@ -3,6 +3,9 @@ from schema.pydantic_schema import URLs
 from typing import List
 import asyncio
 import yt_dlp, os
+from helper.idempotency_manager import IdempotencyManager
+from schema.base import AsyncSessionLocal, engine
+
 
 '''
 - You will have 2 functions, the first one is for celery_app and the second for the logic.
@@ -30,8 +33,10 @@ def download_videos(self, urls: List[str]):
 
 
 
-async def _download_videos(task_instance, urls: List[str]):
+async def _download_videos_no_idempotency(task_instance, urls: List[str]):
     try:
+        manager = IdempotencyManager(db_client=AsyncSessionLocal, db_engine=engine)
+
         output_path = os.path.join("Celery", "database", "downloads_videos")
         os.makedirs(output_path, exist_ok=True)
 
@@ -60,5 +65,85 @@ async def _download_videos(task_instance, urls: List[str]):
         return {"status": "SUCCESS", "downloaded": results}
 
     except Exception as e:
+        print(f"❌ Error in _download_videos: {e}")
+        raise
+
+
+
+async def _download_videos(task_instance, urls: List[str]):
+    manager = IdempotencyManager(db_client=AsyncSessionLocal, db_engine=engine)
+
+    task_name = "tasks.download_videos.download_videos"
+    task_args = {"urls": urls}
+    celery_task_id = task_instance.request.id
+
+    # تحقق من وجود تكرار
+    should_run, existing_task = await manager.should_execute_task(
+        task_name=task_name,
+        task_args=task_args,
+        celery_task_id=celery_task_id,
+        task_time_limit=1800,  # 30 دقيقة
+    )
+
+    if not should_run:
+        print("⚠️ Skipping duplicate video download task.")
+        if existing_task:
+            return {
+                "status": "SKIPPED",
+                "previous_status": existing_task.status,
+                "result": existing_task.get_result(),
+                "execution_id": existing_task.execution_id
+            }
+        return {"status": "SKIPPED"}
+
+    # إنشاء سجل جديد
+    record = await manager.create_task_record(
+        task_name=task_name,
+        task_args=task_args,
+        celery_task_id=celery_task_id,
+    )
+    await manager.update_task_status(record.execution_id, "STARTED")
+
+    try:
+        output_path = os.path.join("Celery", "database", "downloads_videos")
+        os.makedirs(output_path, exist_ok=True)
+
+        if not urls:
+            task_instance.update_state(
+                state="FAILURE",
+                meta={"signal": "No URLs have been found!"}
+            )
+            raise Exception("No URLs have been found!")
+
+        ydl_opts = {
+            "outtmpl": os.path.join(output_path, "%(title)s.%(ext)s"),
+            "format": "best"
+        }
+
+        results = []
+        for idx, url in enumerate(urls, start=1):
+            task_instance.update_state(
+                state="PROGRESS",
+                meta={
+                    "signal": f"Downloading {idx}/{len(urls)}",
+                    "current": idx,
+                    "total": len(urls),
+                },
+            )
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            results.append({"url": url, "path": output_path})
+
+        final_result = {"status": "SUCCESS", "downloaded": results}
+
+        await manager.update_task_status(record.execution_id, "SUCCESS", final_result)
+        return final_result
+
+    except Exception as e:
+        await manager.update_task_status(
+            record.execution_id,
+            "FAILURE",
+            {"error": str(e)}
+        )
         print(f"❌ Error in _download_videos: {e}")
         raise

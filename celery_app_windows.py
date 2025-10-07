@@ -25,7 +25,7 @@ celery_app.conf.update(
     accept_content=['json'],
     
     # Task discovery
-    include=['tasks.mail_sender', "tasks.download_videos"],
+    include=['tasks.mail_sender', "tasks.download_videos", "tasks.download_images"],
     
     # IMPORTANT: Windows + RabbitMQ specific worker settings
     worker_pool='solo',  # Must use solo pool on Windows with RabbitMQ
@@ -46,7 +46,8 @@ celery_app.conf.update(
     # Task routing
     task_routes={
         'tasks.mail_sender.send_email': {'queue': 'mail_queue'},
-        "tasks.download_videos.download_videos": {'queue': 'urls_downloader_queue'}
+        "tasks.download_videos.download_videos": {'queue': 'urls_downloader_queue'},
+        "tasks.download_images.download_images": {'queue': 'images_downloader_queue'},
     },
     task_default_queue='default',
     
