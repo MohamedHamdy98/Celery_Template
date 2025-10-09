@@ -1,3 +1,34 @@
+# change the paths as per your project structure
+# change name of celery_app if you named it differently
+# change the queues names as per your requirement
+# set the passwords of redis, flower and rabbitmq
+# change the pasth of dockerfile: docker/minirag/Dockerfile
+# docker-compose file for FastAPI, RabbitMQ, Redis, Celery Worker, Celery Beat, Flower
+# you can create many celery workers to spicify the queues they will work on
+  # Celery Worker mail_sender queue
+    # celery-worker-mail-sender:
+    #   build:
+    #     context: ..
+    #     dockerfile: docker/minirag/Dockerfile
+    #   container_name: celery-worker
+    #   volumes:
+    #     - fastapi_data:/app/assets
+    #   networks:
+    #     - backend
+    #   restart: always
+    #   depends_on:
+    #     rabbitmq:
+    #       condition: service_healthy
+    #     redis:
+    #       condition: service_healthy
+    #     pgvector:
+    #       condition: service_healthy
+    #   env_file:
+    #     - ./env/.env.app
+    #   command: ["python", "-m", "celery", "-A", "celery_app", "worker", "--queues=mail_sender", "--loglevel=info"]
+
+# you can create many celery beat schedulers for different tasks
+
 services:
   # FastAPI Application
   fastapi:
@@ -57,6 +88,69 @@ services:
       timeout: 10s
       retries: 5
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-minirag_redis_2222}"]
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: docker/minirag/Dockerfile
+    container_name: celery-worker
+    volumes:
+      - fastapi_data:/app/assets
+    networks:
+      - backend
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgvector:
+        condition: service_healthy
+    env_file:
+      - ./env/.env.app
+    command: ["python", "-m", "celery", "-A", "celery_app", "worker", "--queues=default,file_processing,data_indexing", "--loglevel=info"]
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: docker/minirag/Dockerfile
+    container_name: celery-beat
+    volumes:
+      - fastapi_data:/app/assets
+      - celery_beat_data:/app/celerybeat
+    networks:
+      - backend
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./env/.env.app
+    command: ["python", "-m", "celery", "-A", "celery_app", "beat", "--loglevel=info"]
+
+  # Flower Dashboard
+  flower:
+    build:
+      context: ..
+      dockerfile: docker/minirag/Dockerfile
+    container_name: flower
+    ports:
+      - "5555:5555"
+    networks:
+      - backend
+    restart: always
+    depends_on:
+      - rabbitmq
+      - celery-worker
+    env_file:
+      - ./env/.env.app
+    command: ["python", "-m", "celery", "-A", "celery_app", "flower", "--conf=flowerconfig.py"]
+
+
 
 networks:
   backend:

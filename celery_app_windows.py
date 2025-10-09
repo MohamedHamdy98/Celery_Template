@@ -25,7 +25,7 @@ celery_app.conf.update(
     accept_content=['json'],
     
     # Task discovery
-    include=['tasks.mail_sender', "tasks.download_videos", "tasks.download_images"],
+    include=['tasks.mail_sender', "tasks.download_videos", "tasks.download_images", "tasks.maintenance"],
     
     # IMPORTANT: Windows + RabbitMQ specific worker settings
     worker_pool='solo',  # Must use solo pool on Windows with RabbitMQ
@@ -48,9 +48,20 @@ celery_app.conf.update(
         'tasks.mail_sender.send_email': {'queue': 'mail_queue'},
         "tasks.download_videos.download_videos": {'queue': 'urls_downloader_queue'},
         "tasks.download_images.download_images": {'queue': 'images_downloader_queue'},
+        "tasks.maintenance.clean_celery_executions_table": {'queue': 'maintenance_queue'},
     },
     task_default_queue='default',
-    
+
+    # Periodic tasks
+    beat_schedule={
+        'cleanup-old-task-records': {
+            'task': "tasks.maintenance.clean_celery_executions_table",
+            'schedule': 86400,  # every 24 hours for testing; change as needed
+            'args': (),
+            'options': {'queue': 'maintenance_queue'},
+        }
+    },
+
     # Windows-specific settings to prevent the unpacking error
     worker_disable_rate_limits=True,
     task_always_eager=False,  # Make sure this is False

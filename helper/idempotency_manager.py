@@ -104,7 +104,7 @@ class IdempotencyManager:
         # Re-execute if previous task failed
         return True, existing_task
     
-    async def cleanup_old_tasks(self, time_retention: int = 86400) -> int:
+    async def cleanup_old_tasks(self, time_retention: int = 60) -> int:
         """
         Delete old task records older than time_retention seconds.
         Args:

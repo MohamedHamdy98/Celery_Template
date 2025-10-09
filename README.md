@@ -3,6 +3,15 @@
 # Run conda in powerchill win
 - Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 
+## Run FastAPI Application
+```bash
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 5000
+```
+
+## Run Docker Compose (RabbitMQ & Redis)
+```bash
+docker compose up --build rabbitmq redis
+```
 
 ## Run Celery Worker
 ```bash
@@ -13,27 +22,20 @@ python -m celery -A celery_app_windows worker -Q default,urls_downloader_queue,m
 ```bash
 python -m celery -A celery_app_windows flower --port=5555
 ```
+
 ## Run Celery Worker by flower + config file
 ```bash
 python -m celery -A celery_app_windows flower --conf=flowerconfig.py
 ```
 
-
-## Run FastAPI Application
+## To run the Beat scheduler, you can run the following command in a separate terminal:
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 5000
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 5000
-```
-
-## Run Docker Compose (RabbitMQ & Redis)
-```bash
-docker compose up --build rabbitmq redis
+python -m celery -A celery_app beat --loglevel=info
 ```
 
 ## Run Database 
 ```bash
 python -m alembic revision --autogenerate -m "create celery_task_executions table"
 python -m alembic upgrade head
-
 ```
 
