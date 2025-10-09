@@ -1,8 +1,5 @@
 # Project Setup and Run Instructions
 
-# Run conda in powerchill win
-- Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-
 ## Run FastAPI Application
 ```bash
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 5000
